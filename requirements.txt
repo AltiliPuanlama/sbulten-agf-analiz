@@ -1,6 +1,9 @@
-streamlit>=1.25.0
-pandas>=1.5.3
-numpy>=1.23.0
-requests>=2.28.0
-beautifulsoup4>=4.11.1
-pytz>=2022.1
+streamlit
+pandas
+numpy
+requests
+beautifulsoup4
+pytz
+gspread
+oauth2client
+streamlit-autorefresh

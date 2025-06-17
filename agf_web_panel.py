@@ -124,15 +124,19 @@ def analiz_ve_goster():
                 return ""
             return ""
 
-        styled_df = df.style.applymap(lambda v: highlight(v, "Sürekli Artış Göstermiş Atlar"), subset=["Sürekli Artış Göstermiş Atlar"])\
-                          .applymap(lambda v: highlight(v, "Toplam AGF Değişim %"), subset=["Toplam AGF Değişim %"])\
-                          .applymap(lambda v: highlight(v, "Sabit Çok Değişmeyen AGFLER"), subset=["Sabit Çok Değişmeyen AGFLER"])
+        gosterilecek_sutunlar = ["At", "Toplam AGF Değişim %", "Sabit Çok Değişmeyen AGFLER", "Sürekli Artış Göstermiş Atlar", "Sürpriz Tipi"]
+        df_gosterim = df[gosterilecek_sutunlar]
+
+        styled_df = df_gosterim.style\
+            .applymap(lambda v: highlight(v, "Sürekli Artış Göstermiş Atlar"), subset=["Sürekli Artış Göstermiş Atlar"])\
+            .applymap(lambda v: highlight(v, "Toplam AGF Değişim %"), subset=["Toplam AGF Değişim %"])\
+            .applymap(lambda v: highlight(v, "Sabit Çok Değişmeyen AGFLER"), subset=["Sabit Çok Değişmeyen AGFLER"])
 
         st.subheader(f"📊 {ayak}. Ayak Analizi")
         try:
             st.dataframe(styled_df, use_container_width=True)
         except:
-            st.write(df)
+            st.write(df_gosterim)
 
 if cek_buton:
     saatler = [s.strip() for s in saat_input.split(",") if s.strip()]
@@ -142,10 +146,11 @@ if cek_buton:
             simdi = turkiye_saati()
             if simdi.strftime("%H:%M") == hedef_saat:
                 fetch_agf()
+                with sonuc_alan.container():  # 👈 ANLIK ANALİZ GÜNCELLEMESİ
+                    analiz_ve_goster()
                 break
             progress_bar.progress(int(i / toplam * 100))
             status_text.info(f"⏳ Lütfen bekleyiniz... Yükleniyor: %{int(i / toplam * 100)}")
             time.sleep(10)
     progress_bar.progress(100)
     status_text.success("✅ Tüm veriler başarıyla çekildi.")
-    analiz_ve_goster()

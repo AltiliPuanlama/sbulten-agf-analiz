@@ -6,10 +6,12 @@ import sys
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
-import pytz  # Türkiye saati için eklendi
+import pytz  # Türkiye saati icin
+import os
+import pickle
 
 st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
-st.title("🐎 AGF Takip ve Analiz Web Paneli")
+st.title("🏏 AGF Takip ve Analiz Web Paneli")
 
 st.markdown("### TJK AGF Sayfası Linki")
 agf_url = st.text_input("TJK AGF Sayfası Linki", " ")
@@ -21,10 +23,18 @@ progress_bar = st.empty()
 status_text = st.empty()
 sonuc_alan = st.empty()
 
-agf_data_dict = {}
+# Kalıcı AGF verisini yükle veya oluştur
+if "agf_data_dict" not in st.session_state:
+    if os.path.exists("agf_data_dict.pkl"):
+        with open("agf_data_dict.pkl", "rb") as f:
+            st.session_state.agf_data_dict = pickle.load(f)
+    else:
+        st.session_state.agf_data_dict = {}
+
+agf_data_dict = st.session_state.agf_data_dict
+
 output_file = "agf_zaman_serisi_ve_analiz.xlsx"
 
-# Türkiye saatini almak için fonksiyon
 def turkiye_saati():
     return datetime.now(pytz.timezone("Europe/Istanbul"))
 
@@ -40,11 +50,13 @@ def belirle_surpriz_tipi(row, saatler):
         fark_ilk_son = son_agf - ilk_agf
 
         if son_agf < 10 and fark_ilk_son >= 1.0:
-            return f"SÜRPRİZ (%+{fark_ilk_son:.1f})"
+            return f"SÜrpriz (%+{fark_ilk_son:.1f})"
 
-        if len(saatler) >= 2:
-            son1 = row[saatler[-1]]
-            son2 = row[saatler[-2]]
+        if len(saatler) >= 2 and saatler[-1] != saatler[0]:
+            son_saat = saatler[-1]
+            onceki_saat = saatler[-2]
+            son1 = row[son_saat]
+            son2 = row[onceki_saat]
             if pd.notna(son1) and pd.notna(son2):
                 fark_son_dk = float(son1) - float(son2)
                 if fark_son_dk >= 0.3 and float(son1) < 10:
@@ -82,6 +94,10 @@ def fetch_agf():
                 agf_data_dict[ayak] = df
             else:
                 agf_data_dict[ayak] = pd.merge(agf_data_dict[ayak], df, on="At", how="outer")
+
+        # Kaydet
+        with open("agf_data_dict.pkl", "wb") as f:
+            pickle.dump(agf_data_dict, f)
 
         status_text.success(f"✅ [{timestamp}] Veri çekildi.")
     except Exception as e:
@@ -146,11 +162,11 @@ if cek_buton:
             simdi = turkiye_saati()
             if simdi.strftime("%H:%M") == hedef_saat:
                 fetch_agf()
-                with sonuc_alan.container():  # 👈 ANLIK ANALİZ GÜNCELLEMESİ
+                with sonuc_alan.container():
                     analiz_ve_goster()
                 break
             progress_bar.progress(int(i / toplam * 100))
             status_text.info(f"⏳ Lütfen bekleyiniz... Yükleniyor: %{int(i / toplam * 100)}")
             time.sleep(10)
     progress_bar.progress(100)
-    status_text.success("✅ Tüm veriler başarıyla çekildi.")
+    status_text.success("✅ Tüm veriler başarıyla çekildi. SAYISAL DİGİTAL BÜLTEN FARKI İLE...")

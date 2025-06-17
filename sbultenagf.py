@@ -9,6 +9,10 @@ import time
 import pytz  # Türkiye saati icin
 import os
 import pickle
+from streamlit_autorefresh import st_autorefresh
+
+# Sayfa her 5 dakikada bir (300 saniye) otomatik yenilensin
+st_autorefresh(interval=300000, key="otomatik_yenileme")
 
 st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
 st.title("🏏 AGF Takip ve Analiz Web Paneli")
@@ -34,6 +38,12 @@ if "agf_data_dict" not in st.session_state:
 agf_data_dict = st.session_state.agf_data_dict
 
 output_file = "agf_zaman_serisi_ve_analiz.xlsx"
+
+if "cekilen_saatler" not in st.session_state:
+    st.session_state.cekilen_saatler = []
+
+if "hedef_saatler" not in st.session_state:
+    st.session_state.hedef_saatler = []
 
 def turkiye_saati():
     return datetime.now(pytz.timezone("Europe/Istanbul"))
@@ -155,18 +165,21 @@ def analiz_ve_goster():
             st.write(df_gosterim)
 
 if cek_buton:
-    saatler = [s.strip() for s in saat_input.split(",") if s.strip()]
-    toplam = len(saatler)
-    for i, hedef_saat in enumerate(saatler):
-        while True:
-            simdi = turkiye_saati()
-            if simdi.strftime("%H:%M") == hedef_saat:
-                fetch_agf()
-                with sonuc_alan.container():
-                    analiz_ve_goster()
-                break
-            progress_bar.progress(int(i / toplam * 100))
-            status_text.info(f"⏳ Lütfen bekleyiniz... Yükleniyor: %{int(i / toplam * 100)}")
-            time.sleep(10)
-    progress_bar.progress(100)
+    st.session_state.hedef_saatler = [s.strip() for s in saat_input.split(",") if s.strip()]
+
+for hedef_saat in st.session_state.hedef_saatler:
+    simdi = turkiye_saati().strftime("%H:%M")
+    if simdi == hedef_saat and hedef_saat not in st.session_state.cekilen_saatler:
+        fetch_agf()
+        with sonuc_alan.container():
+            analiz_ve_goster()
+        st.session_state.cekilen_saatler.append(hedef_saat)
+
+# Otomatik analiz gösterimi
+if agf_data_dict:
+    with sonuc_alan.container():
+        analiz_ve_goster()
+
+# Tüm saatler çekildiyse kullanıcıya bildirim ver
+if all(saat in st.session_state.cekilen_saatler for saat in st.session_state.hedef_saatler):
     status_text.success("✅ Tüm veriler başarıyla çekildi. SAYISAL DİGİTAL BÜLTEN FARKI İLE...")

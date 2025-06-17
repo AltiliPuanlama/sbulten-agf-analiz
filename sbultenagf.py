@@ -2,17 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-import sys
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-import time
-import pytz  # Türkiye saati icin
-import os
+from datetime import datetime
+import pytz
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from streamlit_autorefresh import st_autorefresh
 
-# 📌 Streamlit sayfa ayarı (ilk satırda olmalı)
+# 📌 Streamlit sayfa ayarları (ilk komut olmalı)
 st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
 
 # Google Sheets Ayarları
@@ -24,8 +21,8 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service
 client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
 
-# Otomatik yenileme (5 dakika)
-st_autorefresh(interval=5 * 60 * 1000, key="otomatik_yenileme")
+# Otomatik yenileme (her 1 dakikada bir)
+st_autorefresh(interval=60 * 1000, key="otomatik_yenileme")
 
 st.title("🏏 AGF Takip ve Analiz Web Paneli")
 
@@ -39,8 +36,9 @@ progress_bar = st.empty()
 status_text = st.empty()
 sonuc_alan = st.empty()
 
+
 def turkiye_saati():
-    return datetime.now(pytz.timezone("Europe/Istanbul"))
+    return datetime.now(pytz.timezone("Europe/Istanbul")).strftime("%H:%M")
 
 @st.cache_data(show_spinner=False)
 def load_data_from_sheet():
@@ -51,12 +49,13 @@ def load_data_from_sheet():
     except:
         return pd.DataFrame(columns=["Saat", "Ayak", "At", "AGF"])
 
-agf_raw_df = load_data_from_sheet()
 agf_data_dict = {}
 if "cekilen_saatler" not in st.session_state:
     st.session_state.cekilen_saatler = []
 if "hedef_saatler" not in st.session_state:
     st.session_state.hedef_saatler = []
+
+agf_raw_df = load_data_from_sheet()
 
 # --- Yardımcı Fonksiyonlar ---
 def belirle_surpriz_tipi(row, saatler):
@@ -70,7 +69,7 @@ def belirle_surpriz_tipi(row, saatler):
         fark_ilk_son = son_agf - ilk_agf
 
         if son_agf < 10 and fark_ilk_son >= 1.0:
-            return f"ŞÜrpriz (%+{fark_ilk_son:.1f})"
+            return f"SÜrpriz (%+{fark_ilk_son:.1f})"
 
         if len(saatler) >= 2 and saatler[-1] != saatler[0]:
             son_saat = saatler[-1]
@@ -86,10 +85,8 @@ def belirle_surpriz_tipi(row, saatler):
     return ""
 
 def fetch_agf():
-    now = turkiye_saati()
-    timestamp = now.strftime("%H:%M")
+    timestamp = turkiye_saati()
     status_text.info(f"⏳ [{timestamp}] AGF verisi çekiliyor...")
-
     try:
         response = requests.get(agf_url)
         soup = BeautifulSoup(response.content, "html.parser")
@@ -105,19 +102,14 @@ def fetch_agf():
                     cell_text = cells[1].text.strip()
                     if "(" in cell_text and "%" in cell_text:
                         at_no = cell_text.split("(")[0].strip()
-                        agf_percent = cell_text.split("%")[1].replace(")", "").replace(",", ".")
+                        agf_percent = cell_text.split("%")[-1].replace(")", "").replace(",", ".")
                         sheet.append_row([timestamp, ayak, at_no, float(agf_percent)])
-                        time.sleep(1.2)  # ← Google API limitlerini aşma
 
         status_text.success(f"✅ [{timestamp}] Veri çekildi.")
     except Exception as e:
         status_text.error(f"⚠️ Hata: {e}")
 
 def analiz_ve_goster():
-    if agf_raw_df.empty:
-        st.warning("Henüz geçerli veri çekilemedi veya Google Sheets yazımı engellendi.")
-        return
-
     agf_data_dict.clear()
     for ayak in range(1, 7):
         df = agf_raw_df[agf_raw_df["Ayak"] == ayak][["Saat", "At", "AGF"]]
@@ -131,7 +123,8 @@ def analiz_ve_goster():
         last_col = pivot_df.columns[-1]
         pivot_df["Toplam AGF Değişim %"] = pivot_df[last_col] - pivot_df[pivot_df.columns[1]]
         pivot_df["Sabit Çok Değişmeyen AGFLER"] = pivot_df[pivot_df.columns[1:-1]].std(axis=1)
-        pivot_df["Sürekli Artış Göstermiş Atlar"] = pivot_df[pivot_df.columns[1:-1]].diff(axis=1).apply(lambda x: sum([1 if v > 0 else -1 if v < 0 else 0 for v in x.dropna()]), axis=1)
+        pivot_df["Sürekli Artış Göstermiş Atlar"] = pivot_df[pivot_df.columns[1:-1]].diff(axis=1).apply(
+            lambda x: sum([1 if v > 0 else -1 if v < 0 else 0 for v in x.dropna()]), axis=1)
         pivot_df["Sürpriz Tipi"] = pivot_df.apply(lambda row: belirle_surpriz_tipi(row, saatler), axis=1)
 
         max_values = {
@@ -158,9 +151,9 @@ def analiz_ve_goster():
         gosterilecek_sutunlar = ["At", "Toplam AGF Değişim %", "Sabit Çok Değişmeyen AGFLER", "Sürekli Artış Göstermiş Atlar", "Sürpriz Tipi"]
         df_gosterim = pivot_df[gosterilecek_sutunlar]
 
-        styled_df = df_gosterim.style\
-            .applymap(lambda v: highlight(v, "Sürekli Artış Göstermiş Atlar"), subset=["Sürekli Artış Göstermiş Atlar"])\
-            .applymap(lambda v: highlight(v, "Toplam AGF Değişim %"), subset=["Toplam AGF Değişim %"])\
+        styled_df = df_gosterim.style \
+            .applymap(lambda v: highlight(v, "Sürekli Artış Göstermiş Atlar"), subset=["Sürekli Artış Göstermiş Atlar"]) \
+            .applymap(lambda v: highlight(v, "Toplam AGF Değişim %"), subset=["Toplam AGF Değişim %"]) \
             .applymap(lambda v: highlight(v, "Sabit Çok Değişmeyen AGFLER"), subset=["Sabit Çok Değişmeyen AGFLER"])
 
         st.subheader(f"📊 {ayak}. Ayak Analizi")
@@ -172,7 +165,7 @@ def analiz_ve_goster():
 if cek_buton:
     st.session_state.hedef_saatler = [s.strip() for s in saat_input.split(",") if s.strip()]
 
-simdi = turkiye_saati().strftime("%H:%M")
+simdi = turkiye_saati()
 for hedef_saat in st.session_state.hedef_saatler:
     if simdi == hedef_saat and hedef_saat not in st.session_state.cekilen_saatler:
         fetch_agf()

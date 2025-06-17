@@ -12,6 +12,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from streamlit_autorefresh import st_autorefresh
 
+st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
+
 # Google Sheets Ayarları
 SHEET_ID = "14Uc1bQ6nhA4dBF7c4W4XDsmHOOCwJfFb_IZnLmp03gc"
 SHEET_NAME = "Sayfa1"
@@ -24,7 +26,6 @@ sheet = client.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
 # Otomatik yenileme (5 dakika)
 st_autorefresh(interval=5 * 60 * 1000, key="otomatik_yenileme")
 
-st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
 st.title("🏏 AGF Takip ve Analiz Web Paneli")
 
 st.markdown("### TJK AGF Sayfası Linki")

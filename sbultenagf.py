@@ -11,27 +11,42 @@ import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from streamlit_autorefresh import st_autorefresh
-
-st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
+import json
 
 # Google Sheets Ayarları
 SHEET_ID = "14Uc1bQ6nhA4dBF7c4W4XDsmHOOCwJfFb_IZnLmp03gc"
 SHEET_NAME = "Sayfa1"
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+
+service_account_info = {
+    "type": st.secrets["gcp_service_account"]["type"],
+    "project_id": st.secrets["gcp_service_account"]["project_id"],
+    "private_key_id": st.secrets["gcp_service_account"]["private_key_id"],
+    "private_key": st.secrets["gcp_service_account"]["private_key"].replace("\\n", "\n"),
+    "client_email": st.secrets["gcp_service_account"]["client_email"],
+    "client_id": st.secrets["gcp_service_account"]["client_id"],
+    "auth_uri": st.secrets["gcp_service_account"]["auth_uri"],
+    "token_uri": st.secrets["gcp_service_account"]["token_uri"],
+    "auth_provider_x509_cert_url": st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
+    "client_x509_cert_url": st.secrets["gcp_service_account"]["client_x509_cert_url"]
+}
+
+creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
 
 # Otomatik yenileme (5 dakika)
 st_autorefresh(interval=5 * 60 * 1000, key="otomatik_yenileme")
 
+st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
 st.title("🏏 AGF Takip ve Analiz Web Paneli")
 
 st.markdown("### TJK AGF Sayfası Linki")
 agf_url = st.text_input("TJK AGF Sayfası Linki", " ")
 
-saat_input = st.text_input("Veri çekim saatlerini girin (örn: 14:00,15:15,16:30)", " ")
+saat_input = st.text_input("Veri çekim saatlerini girin (" +
+                          "örn: 14:00,15:15,16:30)", " ")
 cek_buton = st.button("🔍 Verileri Çek ve Analiz Et")
 
 progress_bar = st.empty()
@@ -69,7 +84,7 @@ def belirle_surpriz_tipi(row, saatler):
         fark_ilk_son = son_agf - ilk_agf
 
         if son_agf < 10 and fark_ilk_son >= 1.0:
-            return f"SÜrpriz (%+{fark_ilk_son:.1f})"
+            return f"ŞÜrpriz (%+{fark_ilk_son:.1f})"
 
         if len(saatler) >= 2 and saatler[-1] != saatler[0]:
             son_saat = saatler[-1]
@@ -172,7 +187,7 @@ for hedef_saat in st.session_state.hedef_saatler:
         fetch_agf()
         agf_raw_df = load_data_from_sheet()
         analiz_ve_goster()
-        st.session_state.cekilen_saatler.append(hedef_saatler)
+        st.session_state.cekilen_saatler.append(hedef_saat)
 
 if not agf_raw_df.empty:
     analiz_ve_goster()

@@ -12,7 +12,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from streamlit_autorefresh import st_autorefresh
 
-# 📌 Streamlit sayfa ayarları (ilk komut olmalı)
+# 📌 Streamlit sayfa ayarı (ilk satırda olmalı)
 st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
 
 # Google Sheets Ayarları
@@ -58,12 +58,6 @@ if "cekilen_saatler" not in st.session_state:
 if "hedef_saatler" not in st.session_state:
     st.session_state.hedef_saatler = []
 
-def saat_eslesiyor_mu(simdi, hedef_saat):
-    simdi_dt = datetime.strptime(simdi, "%H:%M")
-    hedef_dt = datetime.strptime(hedef_saat, "%H:%M")
-    fark = abs((simdi_dt - hedef_dt).total_seconds()) / 60
-    return fark <= 1  # 1 dakika tolerans
-
 # --- Yardımcı Fonksiyonlar ---
 def belirle_surpriz_tipi(row, saatler):
     try:
@@ -76,7 +70,7 @@ def belirle_surpriz_tipi(row, saatler):
         fark_ilk_son = son_agf - ilk_agf
 
         if son_agf < 10 and fark_ilk_son >= 1.0:
-            return f"ÇÜrpriz (%+{fark_ilk_son:.1f})"
+            return f"ŞÜrpriz (%+{fark_ilk_son:.1f})"
 
         if len(saatler) >= 2 and saatler[-1] != saatler[0]:
             son_saat = saatler[-1]
@@ -113,12 +107,17 @@ def fetch_agf():
                         at_no = cell_text.split("(")[0].strip()
                         agf_percent = cell_text.split("%")[1].replace(")", "").replace(",", ".")
                         sheet.append_row([timestamp, ayak, at_no, float(agf_percent)])
+                        time.sleep(1.2)  # ← Google API limitlerini aşma
 
         status_text.success(f"✅ [{timestamp}] Veri çekildi.")
     except Exception as e:
         status_text.error(f"⚠️ Hata: {e}")
 
 def analiz_ve_goster():
+    if agf_raw_df.empty:
+        st.warning("Henüz geçerli veri çekilemedi veya Google Sheets yazımı engellendi.")
+        return
+
     agf_data_dict.clear()
     for ayak in range(1, 7):
         df = agf_raw_df[agf_raw_df["Ayak"] == ayak][["Saat", "At", "AGF"]]
@@ -175,7 +174,7 @@ if cek_buton:
 
 simdi = turkiye_saati().strftime("%H:%M")
 for hedef_saat in st.session_state.hedef_saatler:
-    if saat_eslesiyor_mu(simdi, hedef_saat) and hedef_saat not in st.session_state.cekilen_saatler:
+    if simdi == hedef_saat and hedef_saat not in st.session_state.cekilen_saatler:
         fetch_agf()
         agf_raw_df = load_data_from_sheet()
         analiz_ve_goster()

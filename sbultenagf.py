@@ -15,18 +15,17 @@ from streamlit_autorefresh import st_autorefresh
 # 📌 Streamlit sayfa ayarları (ilk komut olmalı)
 st.set_page_config(page_title="Sayısal Digital Bülten AGF Takip Paneli", layout="centered")
 
-# Otomatik yenileme (5 dakika)
-st_autorefresh(interval=5 * 60 * 1000, key="otomatik_yenileme")
-
 # Google Sheets Ayarları
 SHEET_ID = "14Uc1bQ6nhA4dBF7c4W4XDsmHOOCwJfFb_IZnLmp03gc"
 SHEET_NAME = "Sayfa1"
 
-# 📌 credentials.json içeriğini .streamlit/secrets.toml'dan al
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
 client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
+
+# Otomatik yenileme (5 dakika)
+st_autorefresh(interval=5 * 60 * 1000, key="otomatik_yenileme")
 
 st.title("🏏 AGF Takip ve Analiz Web Paneli")
 
@@ -59,18 +58,25 @@ if "cekilen_saatler" not in st.session_state:
 if "hedef_saatler" not in st.session_state:
     st.session_state.hedef_saatler = []
 
+def saat_eslesiyor_mu(simdi, hedef_saat):
+    simdi_dt = datetime.strptime(simdi, "%H:%M")
+    hedef_dt = datetime.strptime(hedef_saat, "%H:%M")
+    fark = abs((simdi_dt - hedef_dt).total_seconds()) / 60
+    return fark <= 1  # 1 dakika tolerans
+
 # --- Yardımcı Fonksiyonlar ---
 def belirle_surpriz_tipi(row, saatler):
     try:
         agf_values = row[1:-1].dropna().astype(float)
         if len(agf_values) < 3:
             return ""
+
         ilk_agf = agf_values.iloc[0]
         son_agf = agf_values.iloc[-1]
         fark_ilk_son = son_agf - ilk_agf
 
         if son_agf < 10 and fark_ilk_son >= 1.0:
-            return f"SÜrpriz (%+{fark_ilk_son:.1f})"
+            return f"ÇÜrpriz (%+{fark_ilk_son:.1f})"
 
         if len(saatler) >= 2 and saatler[-1] != saatler[0]:
             son_saat = saatler[-1]
@@ -105,7 +111,7 @@ def fetch_agf():
                     cell_text = cells[1].text.strip()
                     if "(" in cell_text and "%" in cell_text:
                         at_no = cell_text.split("(")[0].strip()
-                        agf_percent = cell_text.split("%")[-1].replace(")", "").replace(",", ".")
+                        agf_percent = cell_text.split("%")[1].replace(")", "").replace(",", ".")
                         sheet.append_row([timestamp, ayak, at_no, float(agf_percent)])
 
         status_text.success(f"✅ [{timestamp}] Veri çekildi.")
@@ -169,7 +175,7 @@ if cek_buton:
 
 simdi = turkiye_saati().strftime("%H:%M")
 for hedef_saat in st.session_state.hedef_saatler:
-    if simdi == hedef_saat and hedef_saat not in st.session_state.cekilen_saatler:
+    if saat_eslesiyor_mu(simdi, hedef_saat) and hedef_saat not in st.session_state.cekilen_saatler:
         fetch_agf()
         agf_raw_df = load_data_from_sheet()
         analiz_ve_goster()

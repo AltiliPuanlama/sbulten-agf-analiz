@@ -1,6 +1,4 @@
-flask
+streamlit
 selenium
-pandas
 webdriver-manager
-openpyxl
-gunicorn
+pandas

@@ -1,31 +1,31 @@
 import streamlit as st
 import pandas as pd
-import script  # script.py ile aynı klasörde olmalı
+import requests
 from datetime import date
 
 st.set_page_config(page_title="Yarış Analiz Paneli", layout="wide")
-st.title("🏇 SAYISAL DİGİTAL BÜLTEN Kullanıcı ÖZEL Analiz Paneli")
+st.title("🏇 Yarış Analiz Paneli")
 
-# 📅 Tarih seçimi
+# 📅 Tarih ve şehir seçimi
 secilen_tarih = st.date_input("Tarih Seçiniz", value=date.today())
-
-# 🏙️ Şehir seçimi
-sehirler = ["istanbul", "ankara", "izmir", "adana", "bursa", "kocaeli", "sanliurfa", "elazig", "diyarbakir"]
+sehirler = ["istanbul", "ankara", "izmir", "adana", "bursa", "kocaeli", "urfa", "elazig"]
 secilen_sehir = st.selectbox("Şehir Seçiniz", options=sehirler)
 
-# 🔗 Link oluştur
+# 🔗 API linki oluştur
 tarih_str = secilen_tarih.strftime("%d-%m-%Y")
-url = f"https://yenibeygir.com/{tarih_str}/{secilen_sehir}"
+api_url = f"http://localhost:8000/veri?tarih={tarih_str}&sehir={secilen_sehir}"
+st.markdown(f"🔗 **Veri çekilecek API:** `{api_url}`")
 
-
-# 🚀 Analizi Başlat
+# Başlat
 if st.button("🔍 Analizi Başlat"):
-    with st.spinner("Veriler çekiliyor... SAYISAL DİGİTAL BÜLTEN"):
-                kosular = script.yarislari_cek(url)
-
-    if not kosular:
-        st.warning("Seçilen sayfada yarış bulunamadı.")
-        st.stop()
+    with st.spinner("Veriler API'den çekiliyor..."):
+        try:
+            response = requests.get(api_url)
+            response.raise_for_status()
+            kosular_json = response.json()
+        except Exception as e:
+            st.error(f"Veri çekme hatası: {e}")
+            st.stop()
 
     def puan_hesapla(row):
         puan = 0
@@ -56,20 +56,22 @@ if st.button("🔍 Analizi Başlat"):
     # 🌟 En Şanslı Atlar
     st.subheader("🌟 En Şanslı Atlar")
     favoriler = []
-    for kosu_no, df in kosular.items():
+    for kosu_no, satirlar in kosular_json.items():
+        df = pd.DataFrame(satirlar)
         df["Puan"] = df.apply(puan_hesapla, axis=1)
         en_iyi = df.sort_values("Puan", ascending=False).head(1)
         en_iyi.insert(0, "Koşu No", kosu_no)
         favoriler.append(en_iyi)
+
     favori_df = pd.concat(favoriler)
-    st.dataframe(favori_df.reset_index(drop=True), use_container_width=True)
+    gosterilecek = [c for c in favori_df.columns if c not in ["Yaş", "Kilo Farkı"]]
+    st.dataframe(favori_df[gosterilecek].reset_index(drop=True), use_container_width=True)
 
     # 📄 Tüm Koşular
     st.subheader("📄 Tüm Koşular")
-    for kosu_no, df in kosular.items():
+    for kosu_no, satirlar in kosular_json.items():
+        df = pd.DataFrame(satirlar)
         df["Puan"] = df.apply(puan_hesapla, axis=1)
         st.markdown(f"### {kosu_no}. Koşu")
-        st.dataframe(df.reset_index(drop=True), use_container_width=True)
-
-else:
-    st.info("Tarih ve şehir seçip ardından 'Analizi Başlat' butonuna tıklayın.")
+        gosterilecek = [c for c in df.columns if c not in ["Yaş", "Kilo Farkı"]]
+        st.dataframe(df[gosterilecek].reset_index(drop=True), use_container_width=True)

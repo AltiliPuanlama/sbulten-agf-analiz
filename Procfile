@@ -1,1 +1,1 @@
-web: gunicorn analiz_paneli:app
+web: gunicorn api:app

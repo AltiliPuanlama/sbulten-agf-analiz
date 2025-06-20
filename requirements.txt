@@ -1,9 +1,5 @@
 streamlit
 pandas
-numpy
-requests
-beautifulsoup4
-pytz
-gspread
-oauth2client
-streamlit-autorefresh
+selenium
+webdriver-manager
+openpyxl

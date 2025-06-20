@@ -1,3 +1,4 @@
+# api.py
 from flask import Flask, request, jsonify
 from script import yarislari_cek
 import pandas as pd
@@ -24,3 +25,6 @@ def veri():
     }
 
     return jsonify(json_veri)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)

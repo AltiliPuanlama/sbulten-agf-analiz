@@ -1,4 +1,4 @@
-# analiz_modulu.py
+# analiz_modulu.py (yeniden uyarlanmış - python script'e göre %100 uyumlu)
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import time
-import sys
+import re
 
 def _get_driver():
     options = Options()
@@ -18,53 +18,32 @@ def _get_driver():
     options.add_argument("--window-size=1920x1080")
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-def get_tabs_for_city(city_slug):
+def get_tabs():
     driver = _get_driver()
-    today = time.strftime("%d-%m-%Y")
-    url = f"https://yenibeygir.com/{today}/{city_slug}"
-    driver.get(url)
+    driver.get("https://yenibeygir.com/")
     time.sleep(3)
     tabs = driver.find_elements(By.CSS_SELECTOR, "ul.BultenTabs li")
     tab_list = [(tab.text.strip(), i) for i, tab in enumerate(tabs) if tab.text.strip()]
     driver.quit()
-    return tab_list, url
+    return tab_list
 
-def get_yarislar_from_tab(tab_index, city_url):
+def get_yarislar_from_tab(tab_index):
     driver = _get_driver()
-    driver.get(city_url)
-    wait = WebDriverWait(driver, 10)
+    driver.get("https://yenibeygir.com/")
     time.sleep(3)
     tabs = driver.find_elements(By.CSS_SELECTOR, "ul.BultenTabs li")
-
-    try:
-        close_button = driver.find_element(By.CSS_SELECTOR, ".toast-close-button")
-        if close_button.is_displayed():
-            close_button.click()
-            time.sleep(1)
-    except:
-        pass
-
+    WebDriverWait(driver, 10).until(EC.element_to_be_clickable(tabs[tab_index]))
+    driver.execute_script("arguments[0].scrollIntoView(true);", tabs[tab_index])
     driver.execute_script("arguments[0].click();", tabs[tab_index])
     time.sleep(3)
 
     yarislar = driver.find_elements(By.CSS_SELECTOR, "div.yarisRow.Popup")
     df_list = []
-    kosu_index = 1
 
-    for yaris in yarislar:
+    for i, yaris in enumerate(yarislar):
         try:
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "td.atno")))
-        except:
-            kosu_index += 1
-            continue
-
-        try:
-            kosu_no = yaris.find_element(By.CSS_SELECTOR, ".yarisNo").text
             saat = yaris.find_element(By.CSS_SELECTOR, ".yarisSaat span").text
-            tur = yaris.find_element(By.CSS_SELECTOR, ".yarisTur").text
-            para = yaris.find_element(By.CSS_SELECTOR, ".yarisPara").text
             grup = yaris.find_element(By.CSS_SELECTOR, ".yarisGrup span").text
-
             try:
                 pist_mesafe = yaris.find_element(By.CSS_SELECTOR, ".kumpist").text
             except:
@@ -86,12 +65,9 @@ def get_yarislar_from_tab(tab_index, city_url):
                     cells = row.find_elements(By.TAG_NAME, "td")
                     if len(cells) >= 11:
                         jokey_adi = cells[1].text.strip()
-                        jokey_yuzde = cells[3].text.strip()
-                        antrenor_yuzde = cells[7].text.strip()
-                        sahip_yuzde = cells[11].text.strip()
-                        jokey_perf_dict[jokey_adi] = jokey_yuzde
-                        antrenor_perf_dict[jokey_adi] = antrenor_yuzde
-                        sahip_perf_dict[jokey_adi] = sahip_yuzde
+                        jokey_perf_dict[jokey_adi] = cells[3].text.strip()
+                        antrenor_perf_dict[jokey_adi] = cells[7].text.strip()
+                        sahip_perf_dict[jokey_adi] = cells[11].text.strip()
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
             except:
@@ -107,29 +83,24 @@ def get_yarislar_from_tab(tab_index, city_url):
                 for row in rows:
                     try:
                         at_ismi = row.find_element(By.CSS_SELECTOR, "a.atisimlink").text.strip()
-                        stil_kutulari = row.find_elements(By.CSS_SELECTOR, "div.AtStyle > div[title*='%']")
+                        kutular = row.find_elements(By.CSS_SELECTOR, "div.AtStyle > div[title*='%']")
                         max_yuzde = -1
-                        baskin_index = -1
-                        for i, div in enumerate(stil_kutulari):
-                            title = div.get_attribute("title")
+                        index = -1
+                        for i, k in enumerate(kutular):
+                            title = k.get_attribute("title")
                             if '%' in title:
                                 try:
-                                    parantez_ici = title.split('(')[-1].replace('%)', '').replace('%', '')
-                                    yuzde = int(parantez_ici)
+                                    yuzde = int(re.findall(r"%([0-9]+)", title)[0])
                                     if yuzde > max_yuzde:
                                         max_yuzde = yuzde
-                                        baskin_index = i
+                                        index = i
                                 except:
                                     continue
                         stil = "Bilinmiyor"
-                        if baskin_index == 0:
-                            stil = "En Geride"
-                        elif baskin_index == 1:
-                            stil = "Ortalarda"
-                        elif baskin_index == 2:
-                            stil = "Öne Yakın"
-                        elif baskin_index == 3:
-                            stil = "En Önde Kaçak"
+                        if index == 0: stil = "En Geride"
+                        elif index == 1: stil = "Ortalarda"
+                        elif index == 2: stil = "Öne Yakın"
+                        elif index == 3: stil = "En Önde Kaçak"
                         stil_dict[at_ismi.lower()] = stil
                     except:
                         continue
@@ -139,11 +110,8 @@ def get_yarislar_from_tab(tab_index, city_url):
                 stil_dict = {}
 
             veriler = []
-            at_satirlari = yaris.find_elements(By.CSS_SELECTOR, "tr")
-            toplam_at = len(at_satirlari)
-            islenen_at = 0
-
-            for satir in at_satirlari:
+            atlar = yaris.find_elements(By.CSS_SELECTOR, "tr")
+            for satir in atlar:
                 try:
                     at_no = satir.find_element(By.CSS_SELECTOR, "td.atno").text
                     at_ismi_tag = satir.find_element(By.CSS_SELECTOR, "a.atisimlink")
@@ -164,40 +132,34 @@ def get_yarislar_from_tab(tab_index, city_url):
 
                     kum_kazanc = 0
                     cim_kazanc = 0
+                    kilo_farki = "Bilinmiyor"
+
                     try:
                         tablo = driver.find_elements(By.CSS_SELECTOR, "table")[0]
-                        satirlar = tablo.find_elements(By.TAG_NAME, "tr")
-                        baslik_hucreleri = satirlar[0].find_elements(By.TAG_NAME, "th")
-                        kazanc_index = -1
-                        for i, hucre in enumerate(baslik_hucreleri):
-                            if "Kazanç" in hucre.text:
-                                kazanc_index = i
-                                break
+                        rows = tablo.find_elements(By.TAG_NAME, "tr")
+                        headers = rows[0].find_elements(By.TAG_NAME, "th")
+                        kazanc_index = next((i for i, h in enumerate(headers) if "Kazanç" in h.text), -1)
                         if kazanc_index != -1:
-                            for s in satirlar[1:]:
-                                hucreler = s.find_elements(By.TAG_NAME, "td")
-                                if len(hucreler) > kazanc_index:
-                                    pist = hucreler[0].text.strip()
-                                    kazanc_text = hucreler[kazanc_index].text.strip().replace("₺", "").replace(".", "").replace(",", ".")
+                            for r in rows[1:]:
+                                cells = r.find_elements(By.TAG_NAME, "td")
+                                if len(cells) > kazanc_index:
+                                    pist = cells[0].text.strip()
                                     try:
-                                        kazanc = float(kazanc_text)
-                                        if "Kum" in pist:
-                                            kum_kazanc = kazanc
-                                        elif "Çim" in pist:
-                                            cim_kazanc = kazanc
+                                        miktar = float(cells[kazanc_index].text.replace("₺", "").replace(".", "").replace(",", "."))
+                                        if "Kum" in pist: kum_kazanc = miktar
+                                        elif "Çim" in pist: cim_kazanc = miktar
                                     except:
                                         continue
                     except:
                         pass
 
-                    kilo_farki = "Bilinmiyor"
                     try:
                         tablo = driver.find_elements(By.CSS_SELECTOR, "table")[1]
                         rows = tablo.find_elements(By.TAG_NAME, "tr")
                         if len(rows) >= 3:
-                            bugun_kilo = float(rows[1].find_elements(By.TAG_NAME, "td")[7].text.replace(",", "."))
-                            onceki_kilo = float(rows[2].find_elements(By.TAG_NAME, "td")[7].text.replace(",", "."))
-                            kilo_farki = round(bugun_kilo - onceki_kilo, 2)
+                            kilo1 = float(rows[1].find_elements(By.TAG_NAME, "td")[7].text.replace(",", "."))
+                            kilo2 = float(rows[2].find_elements(By.TAG_NAME, "td")[7].text.replace(",", "."))
+                            kilo_farki = round(kilo1 - kilo2, 2)
                     except:
                         pass
 
@@ -205,32 +167,42 @@ def get_yarislar_from_tab(tab_index, city_url):
                     driver.switch_to.window(driver.window_handles[0])
 
                     veriler.append([
-                        kosu_no, saat, tur, para, grup, pist_mesafe,
-                        at_no, at_ismi, yas, kilo, jokey,
+                        saat, grup, pist_mesafe, at_no, at_ismi, jokey,
                         kum_kazanc, cim_kazanc, kilo_farki,
-                        jokey_yuzde, antrenor_yuzde, sahip_yuzde, stil
+                        jokey_yuzde, antrenor_yuzde, sahip_yuzde,
+                        stil
                     ])
                 except:
                     continue
 
-                islenen_at += 1
-                progress = int((islenen_at / toplam_at) * 100)
-                sys.stdout.write(f"\r{kosu_index}. Koşu işleniyor... %{progress}")
-                sys.stdout.flush()
-
-            if veriler:
-                df = pd.DataFrame(veriler, columns=[
-                    "Koşu No", "Saat", "Yarış Türü", "Ödül", "Grup", "Pist/Mesafe",
-                    "At No", "At İsmi", "Yaş", "Kilo", "Jokey",
-                    "Kum Kazanç", "Çim Kazanç", "Kilo Farkı",
-                    "Jokey %", "Antrenör Başarı", "Sahip Başarı", "Atın Stili"
-                ])
-                df_list.append(df)
-            kosu_index += 1
-
-        except Exception as e:
-            kosu_index += 1
+            df = pd.DataFrame(veriler, columns=[
+                "Saat", "Grup", "Pist/Mesafe", "At No", "At İsmi", "Jokey",
+                "Kum Kazanç", "Çim Kazanç", "Kilo Farkı",
+                "Jokey %", "Antrenör Başarı", "Sahip Başarı", "Atın Stili"
+            ])
+            df_list.append(df)
+        except:
             continue
 
     driver.quit()
     return df_list
+
+def analiz_et(df_list):
+    sonuc = []
+    for df in df_list:
+        df["Puan"] = 0
+        df["Puan"] += df["Jokey %"].apply(lambda x: 2 if "%" in str(x) and int(x.replace("%", "")) > 20 else 0)
+        df["Puan"] += df["Antrenör Başarı"].apply(lambda x: 1 if "%" in str(x) and int(x.replace("%", "")) > 20 else 0)
+        df["Puan"] += df["Sahip Başarı"].apply(lambda x: 1 if "%" in str(x) and int(x.replace("%", "")) > 20 else 0)
+        df["Puan"] += df["Kum Kazanç"].apply(lambda x: 2 if isinstance(x, (int, float)) and x > 10000 else 0)
+        df["Puan"] += df["Çim Kazanç"].apply(lambda x: 2 if isinstance(x, (int, float)) and x > 10000 else 0)
+        df["Puan"] += df["Kilo Farkı"].apply(lambda x: 1 if isinstance(x, float) and x > 0 else 0)
+        df["Puan"] += df["Atın Stili"].apply(lambda x: 1 if x in ["En Önde Kaçak", "Öne Yakın"] else 0)
+        en_iyi = df.sort_values(by="Puan", ascending=False).head(1)
+        sonuc.append(en_iyi)
+    return pd.concat(sonuc)
+
+def orijin_analizi(df_list):
+    tum_df = pd.concat(df_list)
+    grup = tum_df.groupby("Jokey")["At İsmi"].count().reset_index(name="Aynı Jokeyli At Sayısı")
+    return grup.sort_values(by="Aynı Jokeyli At Sayısı", ascending=False).head(10)

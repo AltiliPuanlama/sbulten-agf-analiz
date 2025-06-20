@@ -13,7 +13,7 @@ secilen_sehir = st.selectbox("Şehir Seçiniz", options=sehirler)
 
 # 🔗 API linki oluştur
 tarih_str = secilen_tarih.strftime("%d-%m-%Y")
-api_url = f"http://www.yenibeygir.com/={tarih_str}&sehir={secilen_sehir}"
+api_url = f"http://www.yenibeygir.com/{tarih_str}/{secilen_sehir}"
 st.markdown(f"🔗 **Veri çekilecek API:** `{api_url}`")
 
 # Başlat

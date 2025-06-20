@@ -1,4 +1,4 @@
-# analiz_modulu.py (yeniden uyarlanmış - python script'e göre %100 uyumlu)
+# analiz_modulu.py (güncellendi: stil verisi düzeltildi + gerçekçi en şanslı at seçimi)
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -73,6 +73,7 @@ def get_yarislar_from_tab(tab_index):
             except:
                 pass
 
+            # Stil verisi düzeltildi
             stil_dict = {}
             try:
                 stil_link = yaris.find_element(By.CSS_SELECTOR, "a.yaris-stil").get_attribute("href")
@@ -126,13 +127,13 @@ def get_yarislar_from_tab(tab_index):
                     sahip_yuzde = sahip_perf_dict.get(jokey, "Bilinmiyor")
                     stil = stil_dict.get(at_ismi.lower(), "Bilinmiyor")
 
-                    driver.execute_script("window.open(arguments[0]);", at_link)
-                    driver.switch_to.window(driver.window_handles[1])
-                    time.sleep(2)
-
                     kum_kazanc = 0
                     cim_kazanc = 0
                     kilo_farki = "Bilinmiyor"
+
+                    driver.execute_script("window.open(arguments[0]);", at_link)
+                    driver.switch_to.window(driver.window_handles[1])
+                    time.sleep(2)
 
                     try:
                         tablo = driver.find_elements(By.CSS_SELECTOR, "table")[0]
@@ -198,9 +199,11 @@ def analiz_et(df_list):
         df["Puan"] += df["Çim Kazanç"].apply(lambda x: 2 if isinstance(x, (int, float)) and x > 10000 else 0)
         df["Puan"] += df["Kilo Farkı"].apply(lambda x: 1 if isinstance(x, float) and x > 0 else 0)
         df["Puan"] += df["Atın Stili"].apply(lambda x: 1 if x in ["En Önde Kaçak", "Öne Yakın"] else 0)
-        en_iyi = df.sort_values(by="Puan", ascending=False).head(1)
+
+        en_iyi = df[df["Puan"] == df["Puan"].max()].head(1)
         sonuc.append(en_iyi)
-    return pd.concat(sonuc)
+
+    return pd.concat(sonuc).reset_index(drop=True)
 
 def orijin_analizi(df_list):
     tum_df = pd.concat(df_list)

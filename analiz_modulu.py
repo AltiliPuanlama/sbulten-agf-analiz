@@ -1,4 +1,4 @@
-# analiz_modulu.py (güncellendi: stil verisi düzeltildi + gerçekçi en şanslı at seçimi)
+# analiz_modulu.py
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -11,12 +11,14 @@ import pandas as pd
 import time
 import re
 
+
 def _get_driver():
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920x1080")
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
 
 def get_tabs():
     driver = _get_driver()
@@ -27,133 +29,118 @@ def get_tabs():
     driver.quit()
     return tab_list
 
+
 def get_yarislar_from_tab(tab_index):
     driver = _get_driver()
     driver.get("https://yenibeygir.com/")
     time.sleep(3)
     tabs = driver.find_elements(By.CSS_SELECTOR, "ul.BultenTabs li")
     WebDriverWait(driver, 10).until(EC.element_to_be_clickable(tabs[tab_index]))
-    driver.execute_script("arguments[0].scrollIntoView(true);", tabs[tab_index])
     driver.execute_script("arguments[0].click();", tabs[tab_index])
     time.sleep(3)
 
     yarislar = driver.find_elements(By.CSS_SELECTOR, "div.yarisRow.Popup")
     df_list = []
 
-    for i, yaris in enumerate(yarislar):
+    for yaris in yarislar:
         try:
             saat = yaris.find_element(By.CSS_SELECTOR, ".yarisSaat span").text
             grup = yaris.find_element(By.CSS_SELECTOR, ".yarisGrup span").text
+            pist_mesafe = "Bilinmiyor"
             try:
                 pist_mesafe = yaris.find_element(By.CSS_SELECTOR, ".kumpist").text
             except:
                 try:
                     pist_mesafe = yaris.find_element(By.CSS_SELECTOR, ".cimpist").text
                 except:
-                    pist_mesafe = "Bilinmiyor"
+                    pass
 
-            jokey_perf_dict = {}
-            antrenor_perf_dict = {}
-            sahip_perf_dict = {}
+            jokey_perf, antrenor_perf, sahip_perf = {}, {}, {}
             try:
-                jokey_link = yaris.find_element(By.CSS_SELECTOR, "a.yaris-jokeyperformans").get_attribute("href")
-                driver.execute_script("window.open(arguments[0]);", jokey_link)
+                link = yaris.find_element(By.CSS_SELECTOR, "a.yaris-jokeyperformans").get_attribute("href")
+                driver.execute_script("window.open(arguments[0]);", link)
                 driver.switch_to.window(driver.window_handles[1])
                 WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "table tbody tr")))
-                rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
-                for row in rows:
+                for row in driver.find_elements(By.CSS_SELECTOR, "table tbody tr"):
                     cells = row.find_elements(By.TAG_NAME, "td")
-                    if len(cells) >= 11:
-                        jokey_adi = cells[1].text.strip()
-                        jokey_perf_dict[jokey_adi] = cells[3].text.strip()
-                        antrenor_perf_dict[jokey_adi] = cells[7].text.strip()
-                        sahip_perf_dict[jokey_adi] = cells[11].text.strip()
+                    if len(cells) >= 12:
+                        isim = cells[1].text.strip()
+                        jokey_perf[isim] = cells[3].text.strip()
+                        antrenor_perf[isim] = cells[7].text.strip()
+                        sahip_perf[isim] = cells[11].text.strip()
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
             except:
                 pass
 
-            # Stil verisi düzeltildi
             stil_dict = {}
             try:
-                stil_link = yaris.find_element(By.CSS_SELECTOR, "a.yaris-stil").get_attribute("href")
-                driver.execute_script("window.open(arguments[0]);", stil_link)
+                link = yaris.find_element(By.CSS_SELECTOR, "a.yaris-stil").get_attribute("href")
+                driver.execute_script("window.open(arguments[0]);", link)
                 driver.switch_to.window(driver.window_handles[1])
                 time.sleep(2)
-                rows = driver.find_elements(By.CSS_SELECTOR, "table.StillerTable tbody tr")
-                for row in rows:
+                for row in driver.find_elements(By.CSS_SELECTOR, "table.StillerTable tbody tr"):
                     try:
-                        at_ismi = row.find_element(By.CSS_SELECTOR, "a.atisimlink").text.strip()
+                        at_ismi = row.find_element(By.CSS_SELECTOR, "a.atisimlink").text.strip().lower()
                         kutular = row.find_elements(By.CSS_SELECTOR, "div.AtStyle > div[title*='%']")
-                        max_yuzde = -1
-                        index = -1
-                        for i, k in enumerate(kutular):
-                            title = k.get_attribute("title")
-                            if '%' in title:
-                                try:
-                                    yuzde = int(re.findall(r"%([0-9]+)", title)[0])
-                                    if yuzde > max_yuzde:
-                                        max_yuzde = yuzde
-                                        index = i
-                                except:
-                                    continue
-                        stil = "Bilinmiyor"
-                        if index == 0: stil = "En Geride"
-                        elif index == 1: stil = "Ortalarda"
-                        elif index == 2: stil = "Öne Yakın"
-                        elif index == 3: stil = "En Önde Kaçak"
-                        stil_dict[at_ismi.lower()] = stil
+                        max_yuzde, baskin = -1, -1
+                        for i, div in enumerate(kutular):
+                            try:
+                                yuzde = int(re.findall(r"%([0-9]+)", div.get_attribute("title"))[0])
+                                if yuzde > max_yuzde:
+                                    max_yuzde, baskin = yuzde, i
+                            except:
+                                continue
+                        stil = ["En Geride", "Ortalarda", "Öne Yakın", "En Önde Kaçak"]
+                        stil_dict[at_ismi] = stil[baskin] if 0 <= baskin < len(stil) else "Bilinmiyor"
                     except:
                         continue
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
             except:
-                stil_dict = {}
+                pass
 
             veriler = []
-            atlar = yaris.find_elements(By.CSS_SELECTOR, "tr")
-            for satir in atlar:
+            for satir in yaris.find_elements(By.CSS_SELECTOR, "tr"):
                 try:
                     at_no = satir.find_element(By.CSS_SELECTOR, "td.atno").text
-                    at_ismi_tag = satir.find_element(By.CSS_SELECTOR, "a.atisimlink")
-                    at_ismi = at_ismi_tag.text
-                    at_link = at_ismi_tag.get_attribute("href")
-                    yas = satir.find_elements(By.TAG_NAME, "td")[2].text
+                    at_tag = satir.find_element(By.CSS_SELECTOR, "a.atisimlink")
+                    at_ismi = at_tag.text
+                    at_link = at_tag.get_attribute("href")
                     kilo = satir.find_element(By.CSS_SELECTOR, "td.kilocell").text
+                    yas = satir.find_elements(By.TAG_NAME, "td")[2].text
                     jokey = satir.find_element(By.CSS_SELECTOR, "a.bult-black").text
 
-                    jokey_yuzde = jokey_perf_dict.get(jokey, "Bilinmiyor")
-                    antrenor_yuzde = antrenor_perf_dict.get(jokey, "Bilinmiyor")
-                    sahip_yuzde = sahip_perf_dict.get(jokey, "Bilinmiyor")
+                    jokey_yuzde = jokey_perf.get(jokey, "Bilinmiyor")
+                    ant_yuzde = antrenor_perf.get(jokey, "Bilinmiyor")
+                    sahip_yuzde = sahip_perf.get(jokey, "Bilinmiyor")
                     stil = stil_dict.get(at_ismi.lower(), "Bilinmiyor")
-
-                    kum_kazanc = 0
-                    cim_kazanc = 0
-                    kilo_farki = "Bilinmiyor"
 
                     driver.execute_script("window.open(arguments[0]);", at_link)
                     driver.switch_to.window(driver.window_handles[1])
                     time.sleep(2)
 
+                    kum_kazanc = cim_kazanc = 0
                     try:
                         tablo = driver.find_elements(By.CSS_SELECTOR, "table")[0]
-                        rows = tablo.find_elements(By.TAG_NAME, "tr")
-                        headers = rows[0].find_elements(By.TAG_NAME, "th")
+                        headers = tablo.find_elements(By.TAG_NAME, "th")
                         kazanc_index = next((i for i, h in enumerate(headers) if "Kazanç" in h.text), -1)
-                        if kazanc_index != -1:
-                            for r in rows[1:]:
-                                cells = r.find_elements(By.TAG_NAME, "td")
-                                if len(cells) > kazanc_index:
-                                    pist = cells[0].text.strip()
-                                    try:
-                                        miktar = float(cells[kazanc_index].text.replace("₺", "").replace(".", "").replace(",", "."))
-                                        if "Kum" in pist: kum_kazanc = miktar
-                                        elif "Çim" in pist: cim_kazanc = miktar
-                                    except:
-                                        continue
+                        for row in tablo.find_elements(By.TAG_NAME, "tr")[1:]:
+                            tds = row.find_elements(By.TAG_NAME, "td")
+                            if kazanc_index != -1 and len(tds) > kazanc_index:
+                                pist = tds[0].text.strip()
+                                try:
+                                    val = float(tds[kazanc_index].text.replace("₺", "").replace(".", "").replace(",", "."))
+                                    if "Kum" in pist:
+                                        kum_kazanc = val
+                                    elif "Çim" in pist:
+                                        cim_kazanc = val
+                                except:
+                                    continue
                     except:
                         pass
 
+                    kilo_farki = "Bilinmiyor"
                     try:
                         tablo = driver.find_elements(By.CSS_SELECTOR, "table")[1]
                         rows = tablo.find_elements(By.TAG_NAME, "tr")
@@ -170,8 +157,7 @@ def get_yarislar_from_tab(tab_index):
                     veriler.append([
                         saat, grup, pist_mesafe, at_no, at_ismi, jokey,
                         kum_kazanc, cim_kazanc, kilo_farki,
-                        jokey_yuzde, antrenor_yuzde, sahip_yuzde,
-                        stil
+                        jokey_yuzde, ant_yuzde, sahip_yuzde, stil
                     ])
                 except:
                     continue
@@ -188,6 +174,7 @@ def get_yarislar_from_tab(tab_index):
     driver.quit()
     return df_list
 
+
 def analiz_et(df_list):
     sonuc = []
     for df in df_list:
@@ -199,11 +186,10 @@ def analiz_et(df_list):
         df["Puan"] += df["Çim Kazanç"].apply(lambda x: 2 if isinstance(x, (int, float)) and x > 10000 else 0)
         df["Puan"] += df["Kilo Farkı"].apply(lambda x: 1 if isinstance(x, float) and x > 0 else 0)
         df["Puan"] += df["Atın Stili"].apply(lambda x: 1 if x in ["En Önde Kaçak", "Öne Yakın"] else 0)
-
-        en_iyi = df[df["Puan"] == df["Puan"].max()].head(1)
+        en_iyi = df.sort_values(by="Puan", ascending=False).head(1)
         sonuc.append(en_iyi)
+    return pd.concat(sonuc)
 
-    return pd.concat(sonuc).reset_index(drop=True)
 
 def orijin_analizi(df_list):
     tum_df = pd.concat(df_list)

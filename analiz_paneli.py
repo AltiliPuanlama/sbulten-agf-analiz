@@ -3,24 +3,24 @@ import pandas as pd
 import script  # script.py dosyanla aynı klasörde olmalı
 from datetime import date
 
-st.set_page_config(page_title="Yarış Analiz Paneli", layout="wide")
-st.title("🏇 Yarış Analiz Paneli")
+st.set_page_config(page_title="SAYISAL DİGİTAL BÜLTEN ÖZEL Analiz Paneli", layout="wide")
+st.title("🏇 S.DİGİTAL BÜLTEN ÖZEL Yarış Analiz Paneli")
 
 # 📅 Tarih seçimi
 secilen_tarih = st.date_input("Tarih Seçiniz", value=date.today())
 
 # 🏙️ Şehir seçimi
-sehirler = ["istanbul", "ankara", "izmir", "adana", "bursa", "kocaeli", "urfa", "elazig"]
+sehirler = ["istanbul", "ankara", "izmir", "adana", "bursa", "kocaeli", "sanliurfa", "elazig", "diyarbakir"]
 secilen_sehir = st.selectbox("Şehir Seçiniz", options=sehirler)
 
 # 🔗 Link oluştur
 tarih_str = secilen_tarih.strftime("%d-%m-%Y")
 url = f"https://yenibeygir.com/{tarih_str}/{secilen_sehir}"
-st.markdown(f"🔗 **Veri çekilecek adres:** `{url}`")
+st.markdown(f"🔗 **Veri çekilecek ALTTA SIRALANCAK EN SAĞDA PUAN BÖLÜMÜ BULUNMAKTADIR.")
 
 # 🚀 Analizi Başlat
 if st.button("🔍 Analizi Başlat"):
-    with st.spinner("Veriler çekiliyor..."):
+    with st.spinner("Veriler çekiliyor... S.DİGİTAL BÜLTEN FARKI İLE BEKLEYİNİZ."):
         kosular = script.yarislari_cek(url)
 
     if not kosular:

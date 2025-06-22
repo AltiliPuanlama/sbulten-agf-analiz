@@ -1,54 +1,46 @@
 # app.py
+
 import streamlit as st
 import pandas as pd
-from analiz_modulu import get_tabs, get_yarislar_from_tab, analiz_et, orijin_analizi
 
-st.set_page_config(layout="wide")
-st.title("🏇 Sayısal Digital Bülten - At Yarışı Analiz Paneli")
-st.markdown("---")
+st.set_page_config(page_title="At Yarışı Trakus Analizi", layout="wide")
+st.title("🐎 At Yarışı Trakus Analizi")
 
-# Tabs (şehir sekmeleri) çekiliyor
-with st.spinner("📡 Sekmeler yükleniyor..."):
+uploaded_file = st.file_uploader("Lütfen Trakus Excel dosyanızı yükleyin (.xlsx)", type=["xlsx"])
+
+if uploaded_file:
     try:
-        tabs = get_tabs()
+        # Dosyayı ham olarak oku
+        df_raw = pd.read_excel(uploaded_file, header=None)
+
+        # Sütun başlıklarını 5. satırdan (index 4) al
+        column_names = df_raw.iloc[4]
+        df = df_raw.iloc[5:].copy()
+        df.columns = column_names
+
+        # Mesafe sütunlarını bul
+        mesafe_cols = [col for col in df.columns if isinstance(col, str) and 'm' in col and '[' in str(df[col].iloc[0])]
+
+        # Eksik geçiş verisi sayısı
+        df["Eksik Mesafe Verisi"] = df[mesafe_cols].apply(lambda row: row.isin(["- [-]"]).sum(), axis=1)
+        df["Geçerli Mesafe Sayısı"] = len(mesafe_cols) - df["Eksik Mesafe Verisi"]
+
+        # Hızları sayıya çevir
+        df["Maksimum Hız"] = pd.to_numeric(df["MAKSİMUM HIZ"], errors='coerce')
+        df["Ortalama Hız"] = pd.to_numeric(df["ORTALAMA HIZ"], errors='coerce')
+
+        # At adı sütunu varsa
+        at_adi_kolonu = [col for col in df.columns if "At ADI" in str(col)]
+        if not at_adi_kolonu:
+            raise ValueError("Excel'de 'At ADI' sütunu bulunamadı.")
+
+        # Sonuç tablosu
+        analiz_df = df[[at_adi_kolonu[0], "Maksimum Hız", "Ortalama Hız", "Eksik Mesafe Verisi", "Geçerli Mesafe Sayısı"]]
+
+        st.success("Analiz tamamlandı ✅")
+        st.dataframe(analiz_df.reset_index(drop=True))
+
     except Exception as e:
-        st.error(f"❌ Sekmeler alınamadı: {e}")
-        st.stop()
-
-tab_names = [isim for isim, _ in tabs]
-secili_tab = st.selectbox("📍 Hangi şehir/sekme analiz edilsin?", tab_names)
-
-if st.button("🚀 Analizi Başlat"):
-    secilen_index = dict(tabs)[secili_tab]
-
-    with st.spinner("🔎 Yarış verileri toplanıyor..."):
-        df_list = get_yarislar_from_tab(secilen_index)
-
-    if not df_list:
-        st.warning("⚠️ Bu sekmede analiz edilecek veri bulunamadı.")
-        st.stop()
-
-    # En şanslı atlar
-    sansli_df = analiz_et(df_list)
-
-    # Orijin analizi (aynı babadan gelen atlar)
-    orijin_df = orijin_analizi(df_list)
-
-    st.success("✅ Tüm analiz tamamlandı!")
-
-    # En şanslı atlar
-    st.subheader("🥇 En Şanslı Atlar (Her Koşudan)")
-    sansli_df_show = sansli_df.drop(columns=["Koşu No", "Baba", "Anne", "Anne Baba"], errors='ignore')
-    sansli_df_show["Puan"] = sansli_df["Puan"].apply(lambda x: f"**:red[{x}]**" if x == sansli_df["Puan"].max() else str(x))
-    st.dataframe(sansli_df_show.reset_index(drop=True), use_container_width=True)
-
-    # Orijin analizi
-    st.subheader("🧬 Orijin Analizi (En çok at veren babalar)")
-    st.dataframe(orijin_df.reset_index(drop=True), use_container_width=True)
-
-    # Tüm detaylar
-    with st.expander("📊 Tüm Koşu Verileri"):
-        for i, df in enumerate(df_list):
-            st.markdown(f"### {i+1}. Koşu")
-            df_show = df.drop(columns=["Koşu No", "Baba", "Anne", "Anne Baba"], errors='ignore')
-            st.dataframe(df_show.reset_index(drop=True), use_container_width=True)
+        st.error(f"Bir hata oluştu: {e}")
+else:
+    st.info("Lütfen analiz için bir Excel dosyası yükleyin.")

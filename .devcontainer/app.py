@@ -11,26 +11,15 @@ if uploaded_file:
         # Excel dosyasını başlıksız olarak oku
         df_raw = pd.read_excel(uploaded_file, header=None)
 
-        # Sütun başlıklarını 5. satırdan al (index 4)
-        columns = df_raw.iloc[4]
+        # Başlıklar 5. satır (index 4), veriler 6. satırdan itibaren (index 5+)
         df = df_raw.iloc[5:].copy()
-        df.columns = columns
+        df.columns = df_raw.iloc[4]
 
-        # 'At ADI' benzeri sütunu otomatik tespit et
-        at_adi_col = None
-        for col in df.columns:
-            if isinstance(col, str) and "at" in col.lower() and "adi" in col.lower():
-                at_adi_col = col
-                break
+        # "At ADI" sütunu aslında 2. sütun (index 1) → manuel çek
+        df["At ADI"] = df.iloc[:, 1]
 
-        if at_adi_col is None:
-            raise ValueError("'At ADI' benzeri bir sütun bulunamadı.")
-
-        # Mesafe sütunlarını ayıkla (örneğin 200m, 400m...)
-        mesafe_cols = [
-            col for col in df.columns
-            if isinstance(col, str) and 'm' in col and '[' in str(df[col].iloc[0])
-        ]
+        # Mesafe sütunlarını yakala
+        mesafe_cols = [col for col in df.columns if isinstance(col, str) and 'm' in col and '[' in str(df[col].iloc[0])]
 
         df["Eksik Mesafe Verisi"] = df[mesafe_cols].apply(lambda row: row.isin(["- [-]"]).sum(), axis=1)
         df["Geçerli Mesafe Sayısı"] = len(mesafe_cols) - df["Eksik Mesafe Verisi"]
@@ -39,8 +28,8 @@ if uploaded_file:
         df["Maksimum Hız"] = pd.to_numeric(df.get("MAKSİMUM HIZ"), errors='coerce')
         df["Ortalama Hız"] = pd.to_numeric(df.get("ORTALAMA HIZ"), errors='coerce')
 
-        # Sonuç tablosunu hazırla
-        analiz_df = df[[at_adi_col, "Maksimum Hız", "Ortalama Hız", "Eksik Mesafe Verisi", "Geçerli Mesafe Sayısı"]]
+        # Sonuç tablosu
+        analiz_df = df[["At ADI", "Maksimum Hız", "Ortalama Hız", "Eksik Mesafe Verisi", "Geçerli Mesafe Sayısı"]]
 
         st.success("✅ Analiz başarıyla tamamlandı")
         st.subheader("🏁 Sonuç Tablosu")

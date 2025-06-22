@@ -4,31 +4,15 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-st.set_page_config(page_title="Trakus Yarış Analiz", layout="wide")
-st.title("🐎 Trakus Yarış Analiz Paneli")
+st.set_page_config(page_title="Trakus Verileri Analiz Paneli", layout="wide")
+st.title("🐎 Trakus Verileri Analiz Paneli")
 
-# Kullanıcıdan tarih al
-tarih_input = st.date_input("Tarih Seçiniz")
-tarih = tarih_input.strftime("%Y%m%d")
+# Kullanıcıdan tam URL alın
+default_url = "http://91.151.93.198:5001/20250622/ADANA"
+url_input = st.text_input("Trakus Sayfası URL'si", value=default_url)
 
-# Şehir listesini çek
-@st.cache_data(show_spinner=False)
-def get_sehirler(tarih):
-    url = f"http://91.151.93.198:5001/{tarih}"
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
-    linkler = soup.select("div.navigator a")
-    return [{"isim": a.text.strip(), "sehir": a['href'].split("/")[-1]} for a in linkler]
-
-# Tempo analizine katkı sağlayan sütunlar
-mesafe_sutunlari = [
-    "200m", "400m", "600m", "800m", "1000m", "1200m",
-    "1300m", "1400m", "1500m", "1600m", "1800m", "1900m",
-    "2000m", "2100m", "2200m", "2400m"
-]
-
+# Süreyi saniyeye çevir
 def extract_seconds(value):
-    """00:12.345 gibi string süreden saniyeye çevir"""
     try:
         match = re.search(r"(\d{2}):(\d{2}\.\d+)", value)
         if match:
@@ -39,29 +23,32 @@ def extract_seconds(value):
         pass
     return None
 
+# Tempo analizini yap
 def calculate_scores(df):
     df = df.copy()
-    df["Tempo Skoru"] = 0
-    liderlik_skoru = {row["AT ADI"]: 0 for _, row in df.iterrows()}
+    mesafeler = [col for col in df.columns if re.match(r"\d{3,4}m", col)]
+    
+    # AT ADI sütunu bulma
+    at_adi_kolon = next((c for c in df.columns if "AT" in c and "AD" in c), None)
+    if not at_adi_kolon:
+        return None
 
-    # Her mesafe için en kısa sürede giden atı bul
-    for mesafe in mesafe_sutunlari:
-        if mesafe not in df.columns:
-            continue
+    df["Tempo Skoru"] = 0
+    df["Liderlik Skoru"] = 0
+
+    for mesafe in mesafeler:
         sureler = df[mesafe].apply(extract_seconds)
         min_sure = sureler.min()
         for i, sure in enumerate(sureler):
-            if sure is not None:
-                tempo_puani = max(0, 100 - (sure - min_sure) * 10)
-                df.at[i, "Tempo Skoru"] += tempo_puani
+            if pd.notnull(sure) and pd.notnull(min_sure):
+                tempo = max(0, 100 - (sure - min_sure) * 10)
+                df.at[i, "Tempo Skoru"] += tempo
                 if sure == min_sure:
-                    at_adi = df.iloc[i]["AT ADI"]
-                    liderlik_skoru[at_adi] += 10
+                    df.at[i, "Liderlik Skoru"] += 10
 
     df["Maksimum Hız"] = pd.to_numeric(df.get("MAKSİMUM HIZ", 0), errors="coerce").fillna(0)
     df["Ortalama Hız"] = pd.to_numeric(df.get("ORTALAMA HIZ", 0), errors="coerce").fillna(0)
-    df["Liderlik Skoru"] = df["AT ADI"].map(liderlik_skoru)
-    
+
     df["Toplam Puan"] = (
         df["Tempo Skoru"] +
         df["Maksimum Hız"] * 2 +
@@ -70,51 +57,40 @@ def calculate_scores(df):
     )
 
     df = df.sort_values("Toplam Puan", ascending=False)
-    return df
 
-# Koşuları analiz et
-def analyze_sehir(tarih, sehir):
-    url = f"http://91.151.93.198:5001/{tarih}/{sehir}"
+    return df[[at_adi_kolon, "Tempo Skoru", "Liderlik Skoru", "Maksimum Hız", "Ortalama Hız", "Toplam Puan"]]
+
+# Sayfadaki tabloları al
+def analiz_et(url):
     r = requests.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
     tablolar = soup.find_all("table")
     basliklar = soup.find_all(string=re.compile(r"Koşu "))
+
     analizler = []
 
     for i, tablo in enumerate(tablolar):
         try:
-            headers = [th.text.strip().upper() for th in tablo.find_all("th")]
-            rows = []
-            for tr in tablo.find_all("tr"):
-                tds = tr.find_all("td")
-                if not tds:
-                    continue
-                row = {headers[i]: tds[i].text.strip() for i in range(min(len(headers), len(tds)))}
-                rows.append(row)
-
-            if len(rows) == 0:
+            df = pd.read_html(str(tablo))[0]
+            if df.empty or df.shape[1] < 5:
                 continue
-            df = pd.DataFrame(rows)
-            df.columns = [c.upper() for c in df.columns]
-            df = calculate_scores(df)
-            baslik = basliklar[i].strip() if i < len(basliklar) else f"Koşu {i+1}"
-            analizler.append((baslik, df))
+            skor_df = calculate_scores(df)
+            if skor_df is not None:
+                baslik = basliklar[i].strip() if i < len(basliklar) else f"Koşu {i+1}"
+                analizler.append((baslik, skor_df))
         except Exception:
             continue
-
     return analizler
 
-# Şehirleri getir ve seçtirme
-sehirler = get_sehirler(tarih)
-sehir_adi = st.selectbox("Şehir Seçiniz", [s['isim'] for s in sehirler])
-
-if st.button("Analizi Başlat"):
-    with st.spinner("Veriler getiriliyor..."):
-        analizler = analyze_sehir(tarih, sehir_adi)
-
-    if not analizler:
-        st.warning("Bu şehir için analiz bulunamadı.")
-    else:
-        for baslik, df in analizler:
-            st.markdown(f"### 📊 {baslik} - Trakus Analiz Tablosu")
-            st.dataframe(df[["AT ADI", "Tempo Skoru", "Maksimum Hız", "Ortalama Hız", "Liderlik Skoru", "Toplam Puan"]], use_container_width=True)
+if st.button("Analiz Et"):
+    with st.spinner("Analiz yapılıyor..."):
+        try:
+            analizler = analiz_et(url_input)
+            if not analizler:
+                st.warning("Hiç analiz yapılacak tablo bulunamadı.")
+            else:
+                for baslik, skor_df in analizler:
+                    st.subheader(f"📊 {baslik} - Trakus Analiz")
+                    st.dataframe(skor_df, use_container_width=True)
+        except Exception as e:
+            st.error(f"Hata oluştu: {str(e)}")

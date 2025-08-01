@@ -85,7 +85,11 @@ def galop_detay_analiz(galoplar, bias):
         genel_seviye += 1
     genel_seviye = min(genel_seviye, 5)
 
-    toplam_puan = round(sprint_etkisi + form_zamanlamasi + tempo_uyumu + toparlanma_istikrar + jokey_is_uyumu + genel_seviye + bias, 2)
+    toplam_puan = round(
+        sprint_etkisi + form_zamanlamasi + tempo_uyumu +
+        toparlanma_istikrar + jokey_is_uyumu + genel_seviye + bias,
+        2
+    )
 
     return {
         "sprint_etkisi": sprint_etkisi,
@@ -156,7 +160,6 @@ def veri_cek_ve_analiz_et(link, kosu_no):
             index += 1
 
     kosu_sonuclari["atlar"] = sorted(kosu_sonuclari["atlar"], key=lambda x: x["toplam_puan"], reverse=True)
-
     return kosu_sonuclari
 
 @app.route('/')
@@ -169,9 +172,12 @@ def analiz():
     for i in range(1, 11):
         link = request.form.get(f'link{i}')
         if link:
-            sonuc = veri_cek_ve_analiz_et(link, i)
-            tum_kosular.append(sonuc)
-
+            try:
+                sonuc = veri_cek_ve_analiz_et(link, i)
+                tum_kosular.append(sonuc)
+            except Exception as e:
+                app.logger.error(f"{i}. link analiz edilirken hata oluştu: {e}")
+                continue
     return render_template('galop_sonuclari.html', tum_kosular=tum_kosular)
 
 # 🔥 Flask'ı dış dünyaya açmak için Render'a uygun hale getiriyoruz

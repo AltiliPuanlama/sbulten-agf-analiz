@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Galop Detay Analiz Sonuçları</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Galop Detay Analiz Sonuçları</h1>
+    {% for kosu, sonuc in analiz_sonuclari %}
+        <h2>{{ kosu }}</h2>
+        {% if sonuc is string %}
+            <p class="error">{{ sonuc }}</p>
+        {% else %}
+            <table>
+                <tr>
+                    <th>At İsmi</th>
+                    <th>Toplam Puan</th>
+                    <th>Detaylar</th>
+                </tr>
+                {% for at in sonuc %}
+                    <tr>
+                        <td>{{ at.isim }}</td>
+                        <td>{{ at.puan }}</td>
+                        <td>{{ at.detay|safe }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+        <hr>
+    {% endfor %}
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Galop Detay Analiz Sonuçları</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: black; }
+        h2 { margin-top: 30px; color: #222; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Galop Detay Analiz Sonuçları</h1>
+
+    {% for sonuc in analiz_sonuclari %}
+        <h2>{{ loop.index }}. Koşu</h2>
+        {% if sonuc.hata %}
+            <p class="error">Hata: {{ sonuc.hata }}</p>
+        {% elif not sonuc.analiz %}
+            <p class="error">Veri bulunamadı.</p>
+        {% else %}
+            <table>
+                <tr>
+                    <th>At İsmi</th>
+                    <th>Toplam Puan</th>
+                    <th>Detaylar</th>
+                </tr>
+                {% for at in sonuc.analiz %}
+                <tr>
+                    <td>{{ at.isim }}</td>
+                    <td>{{ at.puan }}</td>
+                    <td>
+                        <ul>
+                            {% for k, v in at.detay.items() %}
+                            <li>{{ k }}: {{ v }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+        <hr>
+    {% endfor %}
+
+</body>
+</html>

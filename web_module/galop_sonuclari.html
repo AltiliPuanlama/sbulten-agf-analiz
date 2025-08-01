@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Galop Detay Analiz Sonuçları</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 20px;
+        }
+        h2 {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 50px;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #333;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .birinci { background-color: #FFD700 !important; font-weight: bold; }
+        .ikinci { background-color: #C0C0C0 !important; font-weight: bold; }
+        .ucuncu { background-color: #CD7F32 !important; font-weight: bold; }
+        .dorduncu { background-color: #add8e6 !important; font-weight: bold; }
+    </style>
+</head>
+<body>
+    {% for kosu in tum_kosular %}
+        <h2>{{ kosu.kosu }}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Sıra</th>
+                    <th>At İsmi</th>
+                    <th>Sprint Etkisi</th>
+                    <th>Form Zamanlaması</th>
+                    <th>Tempo Uyumu</th>
+                    <th>Toparlanma & İstikrar</th>
+                    <th>Jokey-İş Uyumu</th>
+                    <th>Genel Seviye & Güç</th>
+                    <th>Toplam Puan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for at in kosu.atlar %}
+                <tr class="{% if loop.index == 1 %}birinci{% elif loop.index == 2 %}ikinci{% elif loop.index == 3 %}ucuncu{% elif loop.index == 4 %}dorduncu{% endif %}">
+                    <td>{{ loop.index }}</td>
+                    <td>{{ at.at_ismi }}</td>
+                    <td>{{ at.detay.sprint_etkisi }}</td>
+                    <td>{{ at.detay.form_zamanlamasi }}</td>
+                    <td>{{ at.detay.tempo_uyumu }}</td>
+                    <td>{{ at.detay.toparlanma_istikrar }}</td>
+                    <td>{{ at.detay.jokey_is_uyumu }}</td>
+                    <td>{{ at.detay.genel_seviye }}</td>
+                    <td><strong>{{ at.toplam_puan }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endfor %}
+</body>
+</html>

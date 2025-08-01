@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>S.D.BÜLTEN Galop Sayfa Analizi</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 40px;
+        }
+
+        h2 {
+            color: #fff;
+            background-color: #4CAF50;
+            padding: 15px 20px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        form {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            max-width: 850px;
+        }
+
+        input[type="text"], select, input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        input[type="submit"] {
+            background-color: #2196F3;
+            color: white;
+            padding: 18px;
+            width: 100%;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #1a7acb;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .row > div {
+            flex: 1;
+        }
+    </style>
+
+    <script>
+        function formatDateToTR(date) {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+        }
+
+        function createFirstLink() {
+            const program = document.getElementById("program").value.toLowerCase();
+            const tarih = document.getElementById("tarih").value;
+
+            if (program && tarih) {
+                const formatted = formatDateToTR(tarih);
+                const link1 = `https://yenibeygir.com/${formatted}/${program}/1/galoplar`;
+                document.getElementById("link1").value = link1;
+                autoFillLinks();
+            }
+        }
+
+        function autoFillLinks() {
+            const link1 = document.getElementById('link1').value.trim();
+            const match = link1.match(/(.+\/)(\d+)(\/galoplar)/);
+
+            if (match) {
+                const base = match[1];
+                const startIndex = parseInt(match[2]);
+                const suffix = match[3];
+
+                for (let i = 2; i <= 10; i++) {
+                    const nextInput = document.getElementById(`link${i}`);
+                    nextInput.value = `${base}${startIndex + i - 1}${suffix}`;
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>SAYISAL DIGITAL BULTEN - AGF DETAY ANALİZ SİSTEMİ V01_25</h2>
+
+        <form action="/analiz" method="post">
+            <div class="row">
+                <div>
+                    <label for="program">Program Seçin:</label>
+                    <select id="program" onchange="createFirstLink()">
+                        <option value="">Seçiniz</option>
+                        <option>istanbul</option>
+                        <option>ankara</option>
+                        <option>izmir</option>
+                        <option>adana</option>
+                        <option>bursa</option>
+                        <option>kocaeli</option>
+                        <option>sanliurfa</option>
+                        <option>elazig</option>
+                        <option>diyarbakir</option>
+                        <option>antalya</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="tarih">Tarih Seçin:</label>
+                    <input type="date" id="tarih" onchange="createFirstLink()">
+                </div>
+            </div>
+
+            <input type="submit" value="ANALİZ ET">
+
+            {% for i in range(1, 11) %}
+                <label for="link{{ i }}">Link {{ i }}:</label>
+                <input type="text" name="link{{ i }}" id="link{{ i }}" placeholder="https://..." {% if i == 1 %} oninput="autoFillLinks()" {% endif %}><br>
+            {% endfor %}
+        </form>
+    </div>
+</body>
+</html>

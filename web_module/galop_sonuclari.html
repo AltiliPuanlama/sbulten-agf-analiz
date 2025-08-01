@@ -56,6 +56,7 @@
                     <th>Toparlanma & İstikrar</th>
                     <th>Jokey-İş Uyumu</th>
                     <th>Genel Seviye & Güç</th>
+                    <th>Hazırlık Disiplini</th>
                     <th>Toplam Puan</th>
                 </tr>
             </thead>
@@ -63,14 +64,15 @@
                 {% for at in kosu.atlar %}
                 <tr class="{% if loop.index == 1 %}birinci{% elif loop.index == 2 %}ikinci{% elif loop.index == 3 %}ucuncu{% elif loop.index == 4 %}dorduncu{% endif %}">
                     <td>{{ loop.index }}</td>
-                    <td>{{ at.at_ismi }}</td>
-                    <td>{{ at.detay.sprint_etkisi }}</td>
-                    <td>{{ at.detay.form_zamanlamasi }}</td>
-                    <td>{{ at.detay.tempo_uyumu }}</td>
-                    <td>{{ at.detay.toparlanma_istikrar }}</td>
-                    <td>{{ at.detay.jokey_is_uyumu }}</td>
-                    <td>{{ at.detay.genel_seviye }}</td>
-                    <td><strong>{{ at.toplam_puan }}</strong></td>
+                    <td>{{ at.at_ismi or '—' }}</td>
+                    <td>{{ at.detay.sprint_etkisi if at.detay else '?' }}</td>
+                    <td>{{ at.detay.form_zamanlamasi if at.detay else '?' }}</td>
+                    <td>{{ at.detay.tempo_uyumu if at.detay else '?' }}</td>
+                    <td>{{ at.detay.toparlanma_istikrar if at.detay else '?' }}</td>
+                    <td>{{ at.detay.jokey_is_uyumu if at.detay else '?' }}</td>
+                    <td>{{ at.detay.genel_seviye if at.detay else '?' }}</td>
+                    <td>{{ at.detay.hazirlik_disiplini if at.detay else '?' }}</td>
+                    <td><strong>{{ at.toplam_puan or '—' }}</strong></td>
                 </tr>
                 {% endfor %}
             </tbody>

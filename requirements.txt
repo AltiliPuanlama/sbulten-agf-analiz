@@ -2,3 +2,10 @@ streamlit
 selenium
 webdriver-manager
 pandas
+flask
+pandas
+numpy
+beautifulsoup4
+requests
+lxml
+gunicorn

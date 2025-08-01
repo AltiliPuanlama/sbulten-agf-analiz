@@ -5,4 +5,5 @@ numpy
 beautifulsoup4
 requests
 lxml
+gunicorn
 

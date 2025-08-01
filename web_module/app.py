@@ -19,7 +19,6 @@ def galop_detay_analiz(galoplar, bias):
 
     total = len(galoplar)
 
-    # Sprint Etkisi (1-5)
     sprint_values = []
     for g in galoplar:
         try:
@@ -42,7 +41,6 @@ def galop_detay_analiz(galoplar, bias):
     else:
         sprint_etkisi = 1
 
-    # Form Zamanlaması (1-5)
     iyi_sure = [g for g in galoplar if g['sure'] and ('1.00' <= g['sure'] <= '1.04.5')]
     oran = len(iyi_sure) / total if total else 0
     if oran >= 0.8:
@@ -56,13 +54,9 @@ def galop_detay_analiz(galoplar, bias):
     else:
         form_zamanlamasi = 1
 
-    # Tempo Uyumu (1-5)
     tempo_uyumu = min(5, int(sum(1 for g in galoplar if g['pist'] == 'Kum') / total * 5) + 1)
-
-    # Toparlanma & İstikrar (1-5)
     toparlanma_istikrar = min(5, int(sum(1 for g in galoplar if g['tip'] in ['R', 'H']) / total * 5) + 1)
 
-    # Jokey-İş Uyumu (1-5)
     jokeyler = [g['galop_jokey'] for g in galoplar if g['galop_jokey']]
     if not jokeyler:
         jokey_is_uyumu = 1
@@ -80,7 +74,6 @@ def galop_detay_analiz(galoplar, bias):
         else:
             jokey_is_uyumu = 1
 
-    # Genel Seviye & Güç (1-5)
     genel_seviye = 1
     if total >= 6:
         genel_seviye += 1
@@ -181,5 +174,9 @@ def analiz():
 
     return render_template('galop_sonuclari.html', tum_kosular=tum_kosular)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# 🔥 Flask'ı dış dünyaya açmak için Render'a uygun hale getiriyoruz
+if __name__ != '__main__':
+    import logging
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)

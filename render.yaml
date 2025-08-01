@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: sbulten-agf-analiz
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn web_module.app:app
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10

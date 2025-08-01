@@ -56,7 +56,6 @@
                     <th>Toparlanma & İstikrar</th>
                     <th>Jokey-İş Uyumu</th>
                     <th>Genel Seviye & Güç</th>
-                    <th>Hazırlık Disiplini</th>
                     <th>Toplam Puan</th>
                 </tr>
             </thead>
@@ -71,7 +70,6 @@
                     <td>{{ at.detay.toparlanma_istikrar if at.detay else '?' }}</td>
                     <td>{{ at.detay.jokey_is_uyumu if at.detay else '?' }}</td>
                     <td>{{ at.detay.genel_seviye if at.detay else '?' }}</td>
-                    <td>{{ at.detay.hazirlik_disiplini if at.detay else '?' }}</td>
                     <td><strong>{{ at.toplam_puan or '—' }}</strong></td>
                 </tr>
                 {% endfor %}
